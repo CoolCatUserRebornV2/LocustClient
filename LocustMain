@@ -1,0 +1,488 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/Animator/refs/heads/main/RobAnimator"))()
+
+local Players=game:GetService("Players")
+local StarterGui=game:GetService("StarterGui")
+local RunService=game:GetService("RunService")
+local SoundService=game:GetService("SoundService")
+local UIS=game:GetService("UserInputService")
+
+local p=Players.LocalPlayer
+local pg=p:WaitForChild("PlayerGui")
+local c=p.Character or p.CharacterAdded:Wait()
+local h=c:WaitForChild("Humanoid")
+local r=c:WaitForChild("HumanoidRootPart")
+
+if h.RigType==Enum.HumanoidRigType.R15 then
+ pcall(function()
+  StarterGui:SetCore("SendNotification",{
+   Title="Locust Client",
+   Text="dude this is for R6 Not R15",
+   Duration=5
+  })
+ end)
+ return
+end
+
+local NORMAL=23
+local SPRINT=32
+local CROUCH=10
+local ANIMSPEED=1.8
+
+local sprinting=false
+local crouching=false
+local currentName=nil
+local currentTrack=nil
+local lastState=""
+
+local folder="LocustClientKO"
+local modelFile=folder.."/Locust.rbxmx"
+local musicFile=folder.."/LocustTheme.mp3"
+
+local modelURL="https://drive.google.com/uc?export=download&confirm=no_antivirus&id=1mMcR9qmwtlTvQiA_cILK2tfzlZ2WaQRz"
+local musicURL="https://github.com/CoolCatUserRebornV2/LocustClient/raw/refs/heads/main/LocustTheme.mp3"
+
+if not isfolder(folder) then
+ makefolder(folder)
+end
+
+if not isfile(modelFile) then
+ local x=game:HttpGet(modelURL)
+ if not x or #x==0 then
+  error("Failed to download Locust.rbxmx")
+ end
+ writefile(modelFile,x)
+end
+
+local loaded=game:GetObjects(getcustomasset(modelFile))
+
+if not loaded or #loaded==0 then
+ error("Locust failed to load")
+end
+
+for _,v in ipairs(loaded) do
+ v.Parent=workspace
+end
+
+local container=workspace:WaitForChild("Locust")
+local objects=container:WaitForChild("Objects")
+local starter=objects:WaitForChild("StarterCharacter")
+local locust=starter:WaitForChild("Locust")
+local animations=container:WaitForChild("Animations")
+
+local internalHumanoid=locust:FindFirstChildWhichIsA("Humanoid")
+
+if internalHumanoid then
+ internalHumanoid:Destroy()
+end
+
+local face=locust:WaitForChild("face")
+
+local lr=
+ locust.PrimaryPart
+ or locust:FindFirstChild("RootPart",true)
+ or locust:FindFirstChildWhichIsA("BasePart",true)
+
+if not lr then
+ error("Missing Locust root")
+end
+
+for _,v in ipairs(locust:GetDescendants()) do
+ if v:IsA("BasePart") then
+  v.CanCollide=false
+  v.CanTouch=false
+  v.CanQuery=false
+  v.Massless=true
+  v.CastShadow=false
+ end
+end
+
+locust:PivotTo(
+ r.CFrame*
+ CFrame.new(0,-20,0)*
+ CFrame.Angles(0,math.rad(180),0)
+)
+
+local old=lr:FindFirstChild("LocustPlayerAttachment")
+
+if old then
+ old:Destroy()
+end
+
+local weld=Instance.new("WeldConstraint")
+weld.Name="LocustPlayerAttachment"
+weld.Part0=r
+weld.Part1=lr
+weld.Parent=lr
+
+local function hide(v)
+ if v:IsA("BasePart") then
+  v.LocalTransparencyModifier=1
+ elseif v:IsA("Decal") or v:IsA("Texture") then
+  v.Transparency=1
+ elseif v:IsA("ParticleEmitter")
+ or v:IsA("Trail")
+ or v:IsA("Beam") then
+  v.Enabled=false
+ end
+end
+
+for _,v in ipairs(c:GetDescendants()) do
+ hide(v)
+end
+
+c.DescendantAdded:Connect(function(v)
+ task.defer(function()
+  if v and v.Parent then
+   hide(v)
+  end
+ end)
+end)
+
+local camera=workspace.CurrentCamera
+camera.CameraType=Enum.CameraType.Custom
+camera.CameraSubject=face
+
+local IdleKS=animations:FindFirstChild("Idle")
+local WalkKS=animations:FindFirstChild("Walk")
+local SprintKS=animations:FindFirstChild("Sprint")
+local CrouchKS=animations:FindFirstChild("Crouch")
+local CrouchWalkKS=animations:FindFirstChild("CrouchWalk")
+
+local function stopAnim()
+ local t=currentTrack
+
+ currentTrack=nil
+ currentName=nil
+
+ if t then
+  pcall(function()
+   if t.Stop then
+    t:Stop()
+   end
+  end)
+
+  pcall(function()
+   if t.RestoreAnimator then
+    t:RestoreAnimator()
+   end
+  end)
+ end
+end
+
+local function playAnim(name,seq)
+ if not seq then
+  return
+ end
+
+ if currentName==name and currentTrack then
+  return
+ end
+
+ stopAnim()
+
+ currentName=name
+
+ local ok,t=pcall(function()
+  return PlayKeyframeSequence(
+   locust,
+   seq,
+   ANIMSPEED
+  )
+ end)
+
+ if ok then
+  currentTrack=t
+ end
+end
+
+local function applyMovement()
+ if not h or h.Health<=0 then
+  return
+ end
+
+ local speed
+
+ if crouching then
+  speed=CROUCH
+ elseif sprinting then
+  speed=SPRINT
+ else
+  speed=NORMAL
+ end
+
+ h.WalkSpeed=speed
+
+ local dir=h.MoveDirection
+
+ if dir.Magnitude>.01 then
+  local v=r.AssemblyLinearVelocity
+
+  r.AssemblyLinearVelocity=Vector3.new(
+   dir.X*speed,
+   v.Y,
+   dir.Z*speed
+  )
+ end
+end
+
+local function updateAnim()
+ local moving=h.MoveDirection.Magnitude>.05
+ local state
+
+ if crouching then
+  if moving then
+   state="CrouchWalk"
+  else
+   state="Crouch"
+  end
+ elseif sprinting and moving then
+  state="Sprint"
+ elseif moving then
+  state="Walk"
+ else
+  state="Idle"
+ end
+
+ if state==lastState then
+  return
+ end
+
+ lastState=state
+
+ if state=="Crouch" then
+  playAnim("Crouch",CrouchKS)
+
+ elseif state=="CrouchWalk" then
+  playAnim("CrouchWalk",CrouchWalkKS)
+
+ elseif state=="Sprint" then
+  playAnim("Sprint",SprintKS)
+
+ elseif state=="Walk" then
+  playAnim("Walk",WalkKS)
+
+ else
+  playAnim("Idle",IdleKS)
+ end
+end
+
+local function setCrouch(v)
+ crouching=v
+ lastState=""
+ stopAnim()
+ applyMovement()
+ updateAnim()
+end
+
+local function setSprint(v)
+ sprinting=v
+
+ if crouching then
+  lastState=""
+  updateAnim()
+ else
+  lastState=""
+  stopAnim()
+  applyMovement()
+  updateAnim()
+ end
+end
+
+RunService.Heartbeat:Connect(function()
+ if not c.Parent then
+  return
+ end
+
+ applyMovement()
+end)
+
+RunService.RenderStepped:Connect(function()
+ if not c.Parent then
+  return
+ end
+
+ updateAnim()
+
+ for _,v in ipairs(c:GetDescendants()) do
+  if v:IsA("BasePart") then
+   v.LocalTransparencyModifier=1
+  elseif v:IsA("Decal") or v:IsA("Texture") then
+   v.Transparency=1
+  end
+ end
+end)
+
+local gui=pg:FindFirstChild("LocustControlsUI")
+
+if gui then
+ gui:Destroy()
+end
+
+gui=Instance.new("ScreenGui")
+gui.Name="LocustControlsUI"
+gui.IgnoreGuiInset=true
+gui.ResetOnSpawn=false
+gui.DisplayOrder=999999
+gui.Parent=pg
+
+local credits=Instance.new("Frame")
+credits.BackgroundTransparency=1
+credits.AnchorPoint=Vector2.new(.5,0)
+credits.Position=UDim2.new(.5,0,0,7)
+credits.Size=UDim2.new(0,300,0,65)
+credits.Parent=gui
+
+local function credit(text,size,trans,y)
+ local t=Instance.new("TextLabel")
+ t.BackgroundTransparency=1
+ t.Position=UDim2.new(0,0,0,y)
+ t.Size=UDim2.new(1,0,0,size+3)
+ t.Text=text
+ t.TextSize=size
+ t.TextTransparency=trans
+ t.TextColor3=Color3.new(1,1,1)
+ t.Font=Enum.Font.Gotham
+ t.Parent=credits
+end
+
+credit("Made By Emlopam",13,.6,0)
+credit("Credits to MelonScripter For Rbxmx",10,.5,19)
+credit("Credits to ban_thid for the Animator",8,.4,35)
+
+local box=Instance.new("Frame")
+box.AnchorPoint=Vector2.new(1,1)
+box.Position=UDim2.new(1,-20,1,-80)
+box.Size=UDim2.new(0,130,0,100)
+box.BackgroundTransparency=1
+box.Parent=gui
+
+local layout=Instance.new("UIListLayout")
+layout.Padding=UDim.new(0,8)
+layout.Parent=box
+
+local function button(name,text)
+ local b=Instance.new("TextButton")
+ b.Name=name
+ b.Size=UDim2.new(1,0,0,42)
+ b.BackgroundTransparency=.25
+ b.BackgroundColor3=Color3.fromRGB(20,20,20)
+ b.Text=text
+ b.TextColor3=Color3.new(1,1,1)
+ b.TextSize=13
+ b.Font=Enum.Font.GothamBold
+ b.Parent=box
+
+ local corner=Instance.new("UICorner")
+ corner.CornerRadius=UDim.new(0,8)
+ corner.Parent=b
+
+ return b
+end
+
+local sb=button("SprintButton","SPRINT: OFF")
+local cb=button("CrouchButton","CROUCH: OFF")
+
+local function updateButtons()
+ sb.Text=sprinting and "SPRINT: ON" or "SPRINT: OFF"
+
+ sb.BackgroundColor3=
+  sprinting
+  and Color3.fromRGB(40,120,40)
+  or Color3.fromRGB(20,20,20)
+
+ cb.Text=crouching and "CROUCH: ON" or "CROUCH: OFF"
+
+ cb.BackgroundColor3=
+  crouching
+  and Color3.fromRGB(120,80,20)
+  or Color3.fromRGB(20,20,20)
+end
+
+sb.Activated:Connect(function()
+ setSprint(not sprinting)
+ updateButtons()
+end)
+
+cb.Activated:Connect(function()
+ setCrouch(not crouching)
+ updateButtons()
+end)
+
+UIS.InputBegan:Connect(function(i,gp)
+ if gp then
+  return
+ end
+
+ if i.KeyCode==Enum.KeyCode.LeftShift
+ or i.KeyCode==Enum.KeyCode.RightShift then
+
+  setSprint(true)
+  updateButtons()
+
+ elseif i.KeyCode==Enum.KeyCode.C
+ or i.KeyCode==Enum.KeyCode.LeftControl then
+
+  setCrouch(not crouching)
+  updateButtons()
+ end
+end)
+
+UIS.InputEnded:Connect(function(i)
+ if i.KeyCode==Enum.KeyCode.LeftShift
+ or i.KeyCode==Enum.KeyCode.RightShift then
+
+  setSprint(false)
+  updateButtons()
+ end
+end)
+
+local themeSound
+
+local function getSound()
+ if not isfile(musicFile) then
+  local x=game:HttpGet(musicURL)
+
+  if not x or #x==0 then
+   return nil
+  end
+
+  writefile(musicFile,x)
+ end
+
+ local s=Instance.new("Sound")
+ s.Name="LocustTheme"
+ s.SoundId=getcustomasset(musicFile)
+ s.Volume=.7
+ s.Looped=true
+ s.Parent=SoundService
+
+ return s
+end
+
+task.spawn(function()
+ while task.wait(.5) do
+
+  if workspace:FindFirstChild("Locust") then
+
+   if not themeSound then
+    themeSound=getSound()
+   end
+
+   if themeSound and not themeSound.IsPlaying then
+    themeSound:Play()
+   end
+
+  elseif themeSound then
+
+   themeSound:Destroy()
+   themeSound=nil
+
+  end
+ end
+end)
+
+applyMovement()
+updateAnim()
+updateButtons()
+
+print("[Locust] Loaded")
