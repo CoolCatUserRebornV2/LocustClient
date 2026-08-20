@@ -1,3 +1,7 @@
+-- made by Emlopam (Me) 
+-- Credits to MelonScripter for rbxmx
+-- Credits ban_thid for the Rob Animator
+-- Have fun:)
 loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/Animator/refs/heads/main/RobAnimator"))()
 
 local Players=game:GetService("Players")
@@ -23,16 +27,29 @@ if h.RigType==Enum.HumanoidRigType.R15 then
  return
 end
 
-local NORMAL=23
-local SPRINT=32
-local CROUCH=10
+local WALK=24
+local SPRINT=40
+local CROUCH=15
 local ANIMSPEED=1.8
+local FADE=.28
+local CAMERA_SPEED=.12
+local CAMERA_RETURN=.4
 
 local sprinting=false
 local crouching=false
+local sitting=false
+local spawning=false
+
 local currentName=nil
 local currentTrack=nil
 local lastState=""
+
+local camera=workspace.CurrentCamera
+local savedCameraSubject=camera.CameraSubject
+local savedCameraType=camera.CameraType
+local cameraFollowing=false
+local cameraConnection=nil
+local cameraReturnConnection=nil
 
 local folder="LocustClientKO"
 local modelFile=folder.."/Locust.rbxmx"
@@ -69,13 +86,12 @@ local starter=objects:WaitForChild("StarterCharacter")
 local locust=starter:WaitForChild("Locust")
 local animations=container:WaitForChild("Animations")
 
-local internalHumanoid=locust:FindFirstChildWhichIsA("Humanoid")
-
-if internalHumanoid then
- internalHumanoid:Destroy()
-end
-
 local face=locust:WaitForChild("face")
+
+local ih=locust:FindFirstChildWhichIsA("Humanoid")
+if ih then
+ ih:Destroy()
+end
 
 local lr=
  locust.PrimaryPart
@@ -103,7 +119,6 @@ locust:PivotTo(
 )
 
 local old=lr:FindFirstChild("LocustPlayerAttachment")
-
 if old then
  old:Destroy()
 end
@@ -138,15 +153,138 @@ c.DescendantAdded:Connect(function(v)
  end)
 end)
 
-local camera=workspace.CurrentCamera
-camera.CameraType=Enum.CameraType.Custom
-camera.CameraSubject=face
-
 local IdleKS=animations:FindFirstChild("Idle")
 local WalkKS=animations:FindFirstChild("Walk")
 local SprintKS=animations:FindFirstChild("Sprint")
-local CrouchKS=animations:FindFirstChild("Crouch")
-local CrouchWalkKS=animations:FindFirstChild("CrouchWalk")
+local IdleCrouchKS=animations:FindFirstChild("IdleCrouch")
+local WalkCrouchKS=animations:FindFirstChild("WalkCrouch")
+local SitKS=animations:FindFirstChild("Sit")
+local SpawnKS=animations:FindFirstChild("Spawn")
+
+local function getLocustHead()
+ local l=workspace:FindFirstChild("Locust")
+ if not l then return nil end
+
+ local o=l:FindFirstChild("Objects")
+ if not o then return nil end
+
+ local s=o:FindFirstChild("StarterCharacter")
+ if not s then return nil end
+
+ return s:FindFirstChild("Head",true)
+end
+
+local function startCamera()
+ local head=getLocustHead()
+ if not head then return end
+
+ if not cameraFollowing then
+  savedCameraSubject=camera.CameraSubject
+  savedCameraType=camera.CameraType
+ end
+
+ cameraFollowing=true
+ camera.CameraType=Enum.CameraType.Scriptable
+
+ if cameraReturnConnection then
+  cameraReturnConnection:Disconnect()
+  cameraReturnConnection=nil
+ end
+
+ if cameraConnection then
+  cameraConnection:Disconnect()
+ end
+
+ cameraConnection=RunService.RenderStepped:Connect(function()
+  if not cameraFollowing then return end
+  if not head or not head.Parent then return end
+
+  local target=CFrame.lookAt(
+   head.Position+Vector3.new(0,2.5,7),
+   head.Position+Vector3.new(0,1.5,0)
+  )
+
+  camera.CFrame=camera.CFrame:Lerp(
+   target,
+   CAMERA_SPEED
+  )
+ end)
+end
+
+local function stopCamera()
+ if not cameraFollowing then return end
+
+ cameraFollowing=false
+
+ if cameraConnection then
+  cameraConnection:Disconnect()
+  cameraConnection=nil
+ end
+
+ local subject=savedCameraSubject
+
+ if not subject or not subject.Parent then
+  subject=h
+ end
+
+ local rootPart=r
+
+ local target=CFrame.lookAt(
+  rootPart.Position+Vector3.new(0,2.5,7),
+  rootPart.Position+Vector3.new(0,1.5,0)
+ )
+
+ local start=camera.CFrame
+ local elapsed=0
+
+ camera.CameraType=Enum.CameraType.Scriptable
+
+ if cameraReturnConnection then
+  cameraReturnConnection:Disconnect()
+ end
+
+ cameraReturnConnection=RunService.RenderStepped:Connect(function(dt)
+  elapsed+=dt
+
+  local a=math.clamp(
+   elapsed/CAMERA_RETURN,
+   0,
+   1
+  )
+
+  a=a*a*(3-2*a)
+
+  camera.CFrame=start:Lerp(
+   target,
+   a
+  )
+
+  if a>=1 then
+   cameraReturnConnection:Disconnect()
+   cameraReturnConnection=nil
+
+   camera.CameraType=savedCameraType or Enum.CameraType.Custom
+   camera.CameraSubject=subject
+  end
+ end)
+end
+
+local function fadeIn(t)
+ pcall(function()
+  if t.AdjustWeight then
+   t:AdjustWeight(0,0)
+   t:AdjustWeight(1,FADE)
+  end
+ end)
+end
+
+local function fadeOut(t)
+ pcall(function()
+  if t.AdjustWeight then
+   t:AdjustWeight(0,FADE)
+  end
+ end)
+end
 
 local function stopAnim()
  local t=currentTrack
@@ -155,30 +293,47 @@ local function stopAnim()
  currentName=nil
 
  if t then
-  pcall(function()
-   if t.Stop then
-    t:Stop()
-   end
-  end)
+  fadeOut(t)
 
-  pcall(function()
-   if t.RestoreAnimator then
-    t:RestoreAnimator()
-   end
+  task.delay(FADE,function()
+   pcall(function()
+    if t.Stop then
+     t:Stop()
+    end
+   end)
+
+   pcall(function()
+    if t.RestoreAnimator then
+     t:RestoreAnimator()
+    end
+   end)
   end)
  end
 end
 
 local function playAnim(name,seq)
- if not seq then
-  return
- end
+ if not seq then return end
+ if currentName==name and currentTrack then return end
 
- if currentName==name and currentTrack then
-  return
- end
+ local previous=currentTrack
 
- stopAnim()
+ if previous then
+  fadeOut(previous)
+
+  task.delay(FADE,function()
+   pcall(function()
+    if previous.Stop then
+     previous:Stop()
+    end
+   end)
+
+   pcall(function()
+    if previous.RestoreAnimator then
+     previous:RestoreAnimator()
+    end
+   end)
+  end)
+ end
 
  currentName=name
 
@@ -190,27 +345,34 @@ local function playAnim(name,seq)
   )
  end)
 
- if ok then
+ if ok and t then
   currentTrack=t
+  fadeIn(t)
  end
 end
 
 local function applyMovement()
- if not h or h.Health<=0 then
-  return
- end
+ if not h or h.Health<=0 then return end
 
  local speed
 
- if crouching then
+ if sitting or spawning then
+  speed=0
+ elseif crouching then
   speed=CROUCH
  elseif sprinting then
   speed=SPRINT
  else
-  speed=NORMAL
+  speed=WALK
  end
 
  h.WalkSpeed=speed
+
+ if sitting or spawning then
+  h:Move(Vector3.zero,false)
+  r.AssemblyLinearVelocity=Vector3.zero
+  return
+ end
 
  local dir=h.MoveDirection
 
@@ -226,15 +388,20 @@ local function applyMovement()
 end
 
 local function updateAnim()
+ if spawning then return end
+
+ if sitting then
+  if currentName~="Sit" then
+   playAnim("Sit",SitKS)
+  end
+  return
+ end
+
  local moving=h.MoveDirection.Magnitude>.05
  local state
 
  if crouching then
-  if moving then
-   state="CrouchWalk"
-  else
-   state="Crouch"
-  end
+  state=moving and "WalkCrouch" or "IdleCrouch"
  elseif sprinting and moving then
   state="Sprint"
  elseif moving then
@@ -243,63 +410,176 @@ local function updateAnim()
   state="Idle"
  end
 
- if state==lastState then
-  return
- end
+ if state==lastState then return end
 
  lastState=state
 
- if state=="Crouch" then
-  playAnim("Crouch",CrouchKS)
-
- elseif state=="CrouchWalk" then
-  playAnim("CrouchWalk",CrouchWalkKS)
-
+ if state=="IdleCrouch" then
+  playAnim("IdleCrouch",IdleCrouchKS)
+ elseif state=="WalkCrouch" then
+  playAnim("WalkCrouch",WalkCrouchKS)
  elseif state=="Sprint" then
   playAnim("Sprint",SprintKS)
-
  elseif state=="Walk" then
   playAnim("Walk",WalkKS)
-
  else
   playAnim("Idle",IdleKS)
  end
 end
 
 local function setCrouch(v)
+ if sitting or spawning then return end
+
  crouching=v
  lastState=""
+
+ if crouching then
+  startCamera()
+ else
+  stopCamera()
+ end
+
  stopAnim()
  applyMovement()
  updateAnim()
 end
 
 local function setSprint(v)
- sprinting=v
+ if sitting or spawning then return end
 
- if crouching then
+ sprinting=v
+ lastState=""
+
+ stopAnim()
+ applyMovement()
+ updateAnim()
+end
+
+local function setSit(v)
+ if spawning then return end
+
+ sitting=v
+
+ if sitting then
+  sprinting=false
+  crouching=false
   lastState=""
-  updateAnim()
- else
-  lastState=""
+
+  startCamera()
+
   stopAnim()
+
+  h.WalkSpeed=0
+  h:Move(Vector3.zero,false)
+  r.AssemblyLinearVelocity=Vector3.zero
+
+  task.delay(FADE,function()
+   if sitting and not spawning then
+    playAnim("Sit",SitKS)
+   end
+  end)
+ else
+  stopAnim()
+  stopCamera()
+
+  h.WalkSpeed=WALK
+  r.AssemblyLinearVelocity=Vector3.zero
+
+  lastState=""
   applyMovement()
   updateAnim()
  end
 end
 
-RunService.Heartbeat:Connect(function()
- if not c.Parent then
-  return
- end
+local function playSpawn()
+ if spawning or not SpawnKS then return end
 
- applyMovement()
+ spawning=true
+ sitting=false
+ crouching=false
+ sprinting=false
+ lastState="Spawn"
+
+ startCamera()
+
+ stopAnim()
+
+ h.WalkSpeed=0
+ h:Move(Vector3.zero,false)
+ r.AssemblyLinearVelocity=Vector3.zero
+
+ task.delay(FADE,function()
+
+  if not spawning then return end
+
+  local ok,track=pcall(function()
+   return PlayKeyframeSequence(
+    locust,
+    SpawnKS,
+    ANIMSPEED
+   )
+  end)
+
+  if not ok or not track then
+   spawning=false
+   currentTrack=nil
+   currentName=nil
+   lastState=""
+
+   stopCamera()
+   applyMovement()
+   updateAnim()
+
+   return
+  end
+
+  currentTrack=track
+  currentName="Spawn"
+
+  fadeIn(track)
+
+  pcall(function()
+   track.Looped=false
+  end)
+
+  task.spawn(function()
+
+   repeat
+    task.wait()
+   until currentTrack~=track
+   or not track.IsPlaying
+
+   if currentTrack==track then
+
+    fadeOut(track)
+    task.wait(FADE)
+
+    currentTrack=nil
+    currentName=nil
+    spawning=false
+    lastState=""
+
+    h.WalkSpeed=WALK
+    r.AssemblyLinearVelocity=Vector3.zero
+
+    stopCamera()
+
+    applyMovement()
+    updateAnim()
+   end
+  end)
+ end)
+end
+
+RunService.Heartbeat:Connect(function()
+ if c.Parent then
+  applyMovement()
+ end
 end)
 
 RunService.RenderStepped:Connect(function()
- if not c.Parent then
-  return
- end
+
+ if not c.Parent then return end
 
  updateAnim()
 
@@ -352,12 +632,12 @@ credit("Credits to ban_thid for the Animator",8,.4,35)
 local box=Instance.new("Frame")
 box.AnchorPoint=Vector2.new(1,1)
 box.Position=UDim2.new(1,-20,1,-80)
-box.Size=UDim2.new(0,130,0,100)
+box.Size=UDim2.new(0,130,0,205)
 box.BackgroundTransparency=1
 box.Parent=gui
 
 local layout=Instance.new("UIListLayout")
-layout.Padding=UDim.new(0,8)
+layout.Padding=UDim.new(0,7)
 layout.Parent=box
 
 local function button(name,text)
@@ -381,8 +661,11 @@ end
 
 local sb=button("SprintButton","SPRINT: OFF")
 local cb=button("CrouchButton","CROUCH: OFF")
+local sitb=button("SitButton","SIT: OFF")
+local spawnb=button("SpawnButton","SPAWN")
 
 local function updateButtons()
+
  sb.Text=sprinting and "SPRINT: ON" or "SPRINT: OFF"
 
  sb.BackgroundColor3=
@@ -396,6 +679,14 @@ local function updateButtons()
   crouching
   and Color3.fromRGB(120,80,20)
   or Color3.fromRGB(20,20,20)
+
+ sitb.Text=sitting and "SIT: ON" or "SIT: OFF"
+
+ sitb.BackgroundColor3=
+  sitting
+  and Color3.fromRGB(80,80,140)
+  or Color3.fromRGB(20,20,20)
+
 end
 
 sb.Activated:Connect(function()
@@ -408,10 +699,19 @@ cb.Activated:Connect(function()
  updateButtons()
 end)
 
+sitb.Activated:Connect(function()
+ setSit(not sitting)
+ updateButtons()
+end)
+
+spawnb.Activated:Connect(function()
+ playSpawn()
+ updateButtons()
+end)
+
 UIS.InputBegan:Connect(function(i,gp)
- if gp then
-  return
- end
+
+ if gp then return end
 
  if i.KeyCode==Enum.KeyCode.LeftShift
  or i.KeyCode==Enum.KeyCode.RightShift then
@@ -424,22 +724,27 @@ UIS.InputBegan:Connect(function(i,gp)
 
   setCrouch(not crouching)
   updateButtons()
+
  end
 end)
 
 UIS.InputEnded:Connect(function(i)
+
  if i.KeyCode==Enum.KeyCode.LeftShift
  or i.KeyCode==Enum.KeyCode.RightShift then
 
   setSprint(false)
   updateButtons()
+
  end
 end)
 
 local themeSound
 
 local function getSound()
+
  if not isfile(musicFile) then
+
   local x=game:HttpGet(musicURL)
 
   if not x or #x==0 then
@@ -460,6 +765,7 @@ local function getSound()
 end
 
 task.spawn(function()
+
  while task.wait(.5) do
 
   if workspace:FindFirstChild("Locust") then
@@ -484,5 +790,3 @@ end)
 applyMovement()
 updateAnim()
 updateButtons()
-
-print("[Locust] Loaded")
