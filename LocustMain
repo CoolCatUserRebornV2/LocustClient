@@ -2,29 +2,247 @@
 -- Credits to MelonScripter for rbxmx
 -- Credits ban_thid for the Rob Animator
 -- Have fun:)
-loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/Animator/refs/heads/main/RobAnimator"))()
-
 local Players=game:GetService("Players")
+local TweenService=game:GetService("TweenService")
 local StarterGui=game:GetService("StarterGui")
 local RunService=game:GetService("RunService")
 local SoundService=game:GetService("SoundService")
 local UIS=game:GetService("UserInputService")
 
-local p=Players.LocalPlayer
-local pg=p:WaitForChild("PlayerGui")
+local player=Players.LocalPlayer
+local pg=player:WaitForChild("PlayerGui")
+local folder="LocustClientKO"
+
+local imageURL="https://github.com/CoolCatUserRebornV2/LocustClient/raw/refs/heads/main/Bradarwhatisthis.png"
+local audioURL="https://github.com/CoolCatUserRebornV2/LocustClient/raw/refs/heads/main/vine-boom.mp3"
+local modelURL="https://drive.google.com/uc?export=download&confirm=no_antivirus&id=1mMcR9qmwtlTvQiA_cILK2tfzlZ2WaQRz"
+local musicURL="https://github.com/CoolCatUserRebornV2/LocustClient/raw/refs/heads/main/LocustTheme.mp3"
+
+local imageFile=folder.."/Bradarwhatisthis.png"
+local audioFile=folder.."/vine-boom.mp3"
+local modelFile=folder.."/Locust.rbxmx"
+local musicFile=folder.."/LocustTheme.mp3"
+
+if not isfolder(folder) then
+    makefolder(folder)
+end
+
+local imageReady=false
+local audioReady=false
+
+task.spawn(function()
+    pcall(function()
+        if not isfile(imageFile) then
+            local data=game:HttpGet(imageURL)
+            if data and #data>0 then
+                writefile(imageFile,data)
+            end
+        end
+        imageReady=isfile(imageFile)
+    end)
+end)
+
+task.spawn(function()
+    pcall(function()
+        if not isfile(audioFile) then
+            local data=game:HttpGet(audioURL)
+            if data and #data>0 then
+                writefile(audioFile,data)
+            end
+        end
+        audioReady=isfile(audioFile)
+    end)
+end)
+
+repeat
+    task.wait()
+until imageReady and audioReady
+
+local imageGui=Instance.new("ScreenGui")
+imageGui.Name="LocustIntro"
+imageGui.IgnoreGuiInset=true
+imageGui.ResetOnSpawn=false
+imageGui.DisplayOrder=10000000
+imageGui.ZIndexBehavior=Enum.ZIndexBehavior.Global
+imageGui.Parent=pg
+
+local image=Instance.new("ImageLabel")
+image.Size=UDim2.fromScale(1,1)
+image.Position=UDim2.fromScale(0,0)
+image.BackgroundTransparency=1
+image.BorderSizePixel=0
+image.Image=getcustomasset(imageFile)
+image.ScaleType=Enum.ScaleType.Stretch
+image.ImageTransparency=1
+image.ZIndex=100
+image.Parent=imageGui
+
+local loadingGui=Instance.new("ScreenGui")
+loadingGui.Name="LocustLoading"
+loadingGui.IgnoreGuiInset=true
+loadingGui.ResetOnSpawn=false
+loadingGui.DisplayOrder=9999999
+loadingGui.ZIndexBehavior=Enum.ZIndexBehavior.Global
+loadingGui.Parent=pg
+
+local loadingFrame=Instance.new("Frame")
+loadingFrame.Size=UDim2.fromScale(1,1)
+loadingFrame.Position=UDim2.fromScale(0,0)
+loadingFrame.BackgroundColor3=Color3.fromRGB(25,25,25)
+loadingFrame.BackgroundTransparency=1
+loadingFrame.BorderSizePixel=0
+loadingFrame.ZIndex=1
+loadingFrame.Parent=loadingGui
+
+local loadingText=Instance.new("TextLabel")
+loadingText.Size=UDim2.fromScale(1,.15)
+loadingText.Position=UDim2.fromScale(0,.425)
+loadingText.BackgroundTransparency=1
+loadingText.Text="Loading..."
+loadingText.TextColor3=Color3.new(1,1,1)
+loadingText.TextTransparency=1
+loadingText.TextScaled=true
+loadingText.Font=Enum.Font.GothamBold
+loadingText.ZIndex=2
+loadingText.Parent=loadingFrame
+
+local introSound=Instance.new("Sound")
+introSound.Name="VineBoom"
+introSound.SoundId=getcustomasset(audioFile)
+introSound.Volume=3
+introSound.Looped=false
+introSound.Parent=imageGui
+introSound:Play()
+
+local imageFadeIn=TweenService:Create(
+    image,
+    TweenInfo.new(.25,Enum.EasingStyle.Linear),
+    {ImageTransparency=0}
+)
+
+imageFadeIn:Play()
+imageFadeIn.Completed:Wait()
+
+task.wait(1.5)
+
+local imageFadeOut=TweenService:Create(
+    image,
+    TweenInfo.new(.2,Enum.EasingStyle.Linear),
+    {ImageTransparency=1}
+)
+
+local loadingFadeIn=TweenService:Create(
+    loadingFrame,
+    TweenInfo.new(.2,Enum.EasingStyle.Linear),
+    {BackgroundTransparency=0}
+)
+
+local textFadeIn=TweenService:Create(
+    loadingText,
+    TweenInfo.new(.2,Enum.EasingStyle.Linear),
+    {TextTransparency=0}
+)
+
+imageFadeOut:Play()
+loadingFadeIn:Play()
+textFadeIn:Play()
+
+imageFadeOut.Completed:Wait()
+imageGui:Destroy()
+
+-- Load external animator module
+task.spawn(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/Animator/refs/heads/main/RobAnimator"))()
+    end)
+end)
+
+-- Fetch and Parent Locust Model BEFORE checking for workspace.Locust
+task.spawn(function()
+    pcall(function()
+        if not isfile(modelFile) then
+            local x=game:HttpGet(modelURL)
+            if x and #x>0 then
+                writefile(modelFile,x)
+            end
+        end
+        if isfile(modelFile) then
+            local loaded=game:GetObjects(getcustomasset(modelFile))
+            if loaded and #loaded>0 then
+                for _,v in ipairs(loaded) do
+                    v.Parent=workspace
+                end
+            end
+        end
+    end)
+end)
+
+local startTime=os.clock()
+local locustFound=false
+
+while os.clock()-startTime<50 do
+    if workspace:FindFirstChild("Locust") then
+        locustFound=true
+        break
+    end
+    task.wait(.1)
+end
+
+if locustFound then
+    loadingText.Text="Loaded!"
+    task.wait(.25)
+
+    local frameFadeOut=TweenService:Create(
+        loadingFrame,
+        TweenInfo.new(.18,Enum.EasingStyle.Linear),
+        {BackgroundTransparency=1}
+    )
+    local textFadeOut=TweenService:Create(
+        loadingText,
+        TweenInfo.new(.18,Enum.EasingStyle.Linear),
+        {TextTransparency=1}
+    )
+
+    frameFadeOut:Play()
+    textFadeOut:Play()
+    frameFadeOut.Completed:Wait()
+    loadingGui:Destroy()
+else
+    loadingText.Text="❌FAILED TO GET LOCUST DRIVE❌"
+    task.wait(1.5)
+
+    local frameFadeOut=TweenService:Create(
+        loadingFrame,
+        TweenInfo.new(.2,Enum.EasingStyle.Linear),
+        {BackgroundTransparency=1}
+    )
+    local textFadeOut=TweenService:Create(
+        loadingText,
+        TweenInfo.new(.2,Enum.EasingStyle.Linear),
+        {TextTransparency=1}
+    )
+
+    frameFadeOut:Play()
+    textFadeOut:Play()
+    frameFadeOut.Completed:Wait()
+    loadingGui:Destroy()
+    return
+end
+
+local p=player
 local c=p.Character or p.CharacterAdded:Wait()
 local h=c:WaitForChild("Humanoid")
 local r=c:WaitForChild("HumanoidRootPart")
 
 if h.RigType==Enum.HumanoidRigType.R15 then
- pcall(function()
-  StarterGui:SetCore("SendNotification",{
-   Title="Locust Client",
-   Text="dude this is for R6 Not R15",
-   Duration=5
-  })
- end)
- return
+    pcall(function()
+        StarterGui:SetCore("SendNotification",{
+            Title="Locust Client",
+            Text="dude this is for R6 Not R15",
+            Duration=5
+        })
+    end)
+    return
 end
 
 local WALK=24
@@ -51,35 +269,6 @@ local cameraFollowing=false
 local cameraConnection=nil
 local cameraReturnConnection=nil
 
-local folder="LocustClientKO"
-local modelFile=folder.."/Locust.rbxmx"
-local musicFile=folder.."/LocustTheme.mp3"
-
-local modelURL="https://drive.google.com/uc?export=download&confirm=no_antivirus&id=1mMcR9qmwtlTvQiA_cILK2tfzlZ2WaQRz"
-local musicURL="https://github.com/CoolCatUserRebornV2/LocustClient/raw/refs/heads/main/LocustTheme.mp3"
-
-if not isfolder(folder) then
- makefolder(folder)
-end
-
-if not isfile(modelFile) then
- local x=game:HttpGet(modelURL)
- if not x or #x==0 then
-  error("Failed to download Locust.rbxmx")
- end
- writefile(modelFile,x)
-end
-
-local loaded=game:GetObjects(getcustomasset(modelFile))
-
-if not loaded or #loaded==0 then
- error("Locust failed to load")
-end
-
-for _,v in ipairs(loaded) do
- v.Parent=workspace
-end
-
 local container=workspace:WaitForChild("Locust")
 local objects=container:WaitForChild("Objects")
 local starter=objects:WaitForChild("StarterCharacter")
@@ -90,37 +279,30 @@ local face=locust:WaitForChild("face")
 
 local ih=locust:FindFirstChildWhichIsA("Humanoid")
 if ih then
- ih:Destroy()
+    ih:Destroy()
 end
 
-local lr=
- locust.PrimaryPart
- or locust:FindFirstChild("RootPart",true)
- or locust:FindFirstChildWhichIsA("BasePart",true)
+local lr=locust.PrimaryPart or locust:FindFirstChild("RootPart",true) or locust:FindFirstChildWhichIsA("BasePart",true)
 
 if not lr then
- error("Missing Locust root")
+    error("Missing Locust root")
 end
 
 for _,v in ipairs(locust:GetDescendants()) do
- if v:IsA("BasePart") then
-  v.CanCollide=false
-  v.CanTouch=false
-  v.CanQuery=false
-  v.Massless=true
-  v.CastShadow=false
- end
+    if v:IsA("BasePart") then
+        v.CanCollide=false
+        v.CanTouch=false
+        v.CanQuery=false
+        v.Massless=true
+        v.CastShadow=false
+    end
 end
 
-locust:PivotTo(
- r.CFrame*
- CFrame.new(0,-20,0)*
- CFrame.Angles(0,math.rad(180),0)
-)
+locust:PivotTo(r.CFrame*CFrame.new(0,-20,0)*CFrame.Angles(0,math.rad(180),0))
 
 local old=lr:FindFirstChild("LocustPlayerAttachment")
 if old then
- old:Destroy()
+    old:Destroy()
 end
 
 local weld=Instance.new("WeldConstraint")
@@ -130,27 +312,25 @@ weld.Part1=lr
 weld.Parent=lr
 
 local function hide(v)
- if v:IsA("BasePart") then
-  v.LocalTransparencyModifier=1
- elseif v:IsA("Decal") or v:IsA("Texture") then
-  v.Transparency=1
- elseif v:IsA("ParticleEmitter")
- or v:IsA("Trail")
- or v:IsA("Beam") then
-  v.Enabled=false
- end
+    if v:IsA("BasePart") then
+        v.LocalTransparencyModifier=1
+    elseif v:IsA("Decal") or v:IsA("Texture") then
+        v.Transparency=1
+    elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") then
+        v.Enabled=false
+    end
 end
 
 for _,v in ipairs(c:GetDescendants()) do
- hide(v)
+    hide(v)
 end
 
 c.DescendantAdded:Connect(function(v)
- task.defer(function()
-  if v and v.Parent then
-   hide(v)
-  end
- end)
+    task.defer(function()
+        if v and v.Parent then
+            hide(v)
+        end
+    end)
 end)
 
 local IdleKS=animations:FindFirstChild("Idle")
@@ -162,440 +342,365 @@ local SitKS=animations:FindFirstChild("Sit")
 local SpawnKS=animations:FindFirstChild("Spawn")
 
 local function getLocustHead()
- local l=workspace:FindFirstChild("Locust")
- if not l then return nil end
-
- local o=l:FindFirstChild("Objects")
- if not o then return nil end
-
- local s=o:FindFirstChild("StarterCharacter")
- if not s then return nil end
-
- return s:FindFirstChild("Head",true)
+    local l=workspace:FindFirstChild("Locust")
+    if not l then return nil end
+    local o=l:FindFirstChild("Objects")
+    if not o then return nil end
+    local s=o:FindFirstChild("StarterCharacter")
+    if not s then return nil end
+    return s:FindFirstChild("Head",true)
 end
 
 local function startCamera()
- local head=getLocustHead()
- if not head then return end
+    local head=getLocustHead()
+    if not head then return end
 
- if not cameraFollowing then
-  savedCameraSubject=camera.CameraSubject
-  savedCameraType=camera.CameraType
- end
+    if not cameraFollowing then
+        savedCameraSubject=camera.CameraSubject
+        savedCameraType=camera.CameraType
+    end
 
- cameraFollowing=true
- camera.CameraType=Enum.CameraType.Scriptable
+    cameraFollowing=true
+    camera.CameraType=Enum.CameraType.Scriptable
 
- if cameraReturnConnection then
-  cameraReturnConnection:Disconnect()
-  cameraReturnConnection=nil
- end
+    if cameraReturnConnection then
+        cameraReturnConnection:Disconnect()
+        cameraReturnConnection=nil
+    end
 
- if cameraConnection then
-  cameraConnection:Disconnect()
- end
+    if cameraConnection then
+        cameraConnection:Disconnect()
+    end
 
- cameraConnection=RunService.RenderStepped:Connect(function()
-  if not cameraFollowing then return end
-  if not head or not head.Parent then return end
+    cameraConnection=RunService.RenderStepped:Connect(function()
+        if not cameraFollowing then return end
+        if not head or not head.Parent then return end
 
-  local target=CFrame.lookAt(
-   head.Position+Vector3.new(0,2.5,7),
-   head.Position+Vector3.new(0,1.5,0)
-  )
-
-  camera.CFrame=camera.CFrame:Lerp(
-   target,
-   CAMERA_SPEED
-  )
- end)
+        local target=CFrame.lookAt(
+            head.Position+Vector3.new(0,2.5,7),
+            head.Position+Vector3.new(0,1.5,0)
+        )
+        camera.CFrame=camera.CFrame:Lerp(target,CAMERA_SPEED)
+    end)
 end
 
 local function stopCamera()
- if not cameraFollowing then return end
+    if not cameraFollowing then return end
+    cameraFollowing=false
 
- cameraFollowing=false
+    if cameraConnection then
+        cameraConnection:Disconnect()
+        cameraConnection=nil
+    end
 
- if cameraConnection then
-  cameraConnection:Disconnect()
-  cameraConnection=nil
- end
+    local subject=savedCameraSubject
+    if not subject or not subject.Parent then
+        subject=h
+    end
 
- local subject=savedCameraSubject
+    local rootPart=r
+    local target=CFrame.lookAt(
+        rootPart.Position+Vector3.new(0,2.5,7),
+        rootPart.Position+Vector3.new(0,1.5,0)
+    )
 
- if not subject or not subject.Parent then
-  subject=h
- end
+    local start=camera.CFrame
+    local elapsed=0
+    camera.CameraType=Enum.CameraType.Scriptable
 
- local rootPart=r
+    if cameraReturnConnection then
+        cameraReturnConnection:Disconnect()
+    end
 
- local target=CFrame.lookAt(
-  rootPart.Position+Vector3.new(0,2.5,7),
-  rootPart.Position+Vector3.new(0,1.5,0)
- )
+    cameraReturnConnection=RunService.RenderStepped:Connect(function(dt)
+        elapsed+=dt
+        local a=math.clamp(elapsed/CAMERA_RETURN,0,1)
+        a=a*a*(3-2*a)
+        camera.CFrame=start:Lerp(target,a)
 
- local start=camera.CFrame
- local elapsed=0
-
- camera.CameraType=Enum.CameraType.Scriptable
-
- if cameraReturnConnection then
-  cameraReturnConnection:Disconnect()
- end
-
- cameraReturnConnection=RunService.RenderStepped:Connect(function(dt)
-  elapsed+=dt
-
-  local a=math.clamp(
-   elapsed/CAMERA_RETURN,
-   0,
-   1
-  )
-
-  a=a*a*(3-2*a)
-
-  camera.CFrame=start:Lerp(
-   target,
-   a
-  )
-
-  if a>=1 then
-   cameraReturnConnection:Disconnect()
-   cameraReturnConnection=nil
-
-   camera.CameraType=savedCameraType or Enum.CameraType.Custom
-   camera.CameraSubject=subject
-  end
- end)
+        if a>=1 then
+            cameraReturnConnection:Disconnect()
+            cameraReturnConnection=nil
+            camera.CameraType=savedCameraType or Enum.CameraType.Custom
+            camera.CameraSubject=subject
+        end
+    end)
 end
 
 local function fadeIn(t)
- pcall(function()
-  if t.AdjustWeight then
-   t:AdjustWeight(0,0)
-   t:AdjustWeight(1,FADE)
-  end
- end)
+    pcall(function()
+        if t.AdjustWeight then
+            t:AdjustWeight(0,0)
+            t:AdjustWeight(1,FADE)
+        end
+    end)
 end
 
 local function fadeOut(t)
- pcall(function()
-  if t.AdjustWeight then
-   t:AdjustWeight(0,FADE)
-  end
- end)
+    pcall(function()
+        if t.AdjustWeight then
+            t:AdjustWeight(0,FADE)
+        end
+    end)
 end
 
 local function stopAnim()
- local t=currentTrack
+    local t=currentTrack
+    currentTrack=nil
+    currentName=nil
 
- currentTrack=nil
- currentName=nil
-
- if t then
-  fadeOut(t)
-
-  task.delay(FADE,function()
-   pcall(function()
-    if t.Stop then
-     t:Stop()
+    if t then
+        fadeOut(t)
+        task.delay(FADE,function()
+            pcall(function() if t.Stop then t:Stop() end end)
+            pcall(function() if t.RestoreAnimator then t:RestoreAnimator() end end)
+        end)
     end
-   end)
-
-   pcall(function()
-    if t.RestoreAnimator then
-     t:RestoreAnimator()
-    end
-   end)
-  end)
- end
 end
 
 local function playAnim(name,seq)
- if not seq then return end
- if currentName==name and currentTrack then return end
+    if not seq then return end
+    if currentName==name and currentTrack then return end
 
- local previous=currentTrack
-
- if previous then
-  fadeOut(previous)
-
-  task.delay(FADE,function()
-   pcall(function()
-    if previous.Stop then
-     previous:Stop()
+    local previous=currentTrack
+    if previous then
+        fadeOut(previous)
+        task.delay(FADE,function()
+            pcall(function() if previous.Stop then previous:Stop() end end)
+            pcall(function() if previous.RestoreAnimator then previous:RestoreAnimator() end end)
+        end)
     end
-   end)
 
-   pcall(function()
-    if previous.RestoreAnimator then
-     previous:RestoreAnimator()
+    currentName=name
+    local ok,t=pcall(function()
+        return PlayKeyframeSequence(locust,seq,ANIMSPEED)
+    end)
+
+    if ok and t then
+        currentTrack=t
+        fadeIn(t)
     end
-   end)
-  end)
- end
-
- currentName=name
-
- local ok,t=pcall(function()
-  return PlayKeyframeSequence(
-   locust,
-   seq,
-   ANIMSPEED
-  )
- end)
-
- if ok and t then
-  currentTrack=t
-  fadeIn(t)
- end
 end
 
 local function applyMovement()
- if not h or h.Health<=0 then return end
+    if not h or h.Health<=0 then return end
 
- local speed
+    local speed
+    if sitting or spawning then
+        speed=0
+    elseif crouching then
+        speed=CROUCH
+    elseif sprinting then
+        speed=SPRINT
+    else
+        speed=WALK
+    end
 
- if sitting or spawning then
-  speed=0
- elseif crouching then
-  speed=CROUCH
- elseif sprinting then
-  speed=SPRINT
- else
-  speed=WALK
- end
+    h.WalkSpeed=speed
 
- h.WalkSpeed=speed
+    if sitting or spawning then
+        h:Move(Vector3.zero,false)
+        r.AssemblyLinearVelocity=Vector3.zero
+        return
+    end
 
- if sitting or spawning then
-  h:Move(Vector3.zero,false)
-  r.AssemblyLinearVelocity=Vector3.zero
-  return
- end
-
- local dir=h.MoveDirection
-
- if dir.Magnitude>.01 then
-  local v=r.AssemblyLinearVelocity
-
-  r.AssemblyLinearVelocity=Vector3.new(
-   dir.X*speed,
-   v.Y,
-   dir.Z*speed
-  )
- end
+    local dir=h.MoveDirection
+    if dir.Magnitude>.01 then
+        local v=r.AssemblyLinearVelocity
+        r.AssemblyLinearVelocity=Vector3.new(dir.X*speed, v.Y, dir.Z*speed)
+    end
 end
 
 local function updateAnim()
- if spawning then return end
+    if spawning then return end
 
- if sitting then
-  if currentName~="Sit" then
-   playAnim("Sit",SitKS)
-  end
-  return
- end
+    if sitting then
+        if currentName~="Sit" then
+            playAnim("Sit",SitKS)
+        end
+        return
+    end
 
- local moving=h.MoveDirection.Magnitude>.05
- local state
+    local moving=h.MoveDirection.Magnitude>.05
+    local state
 
- if crouching then
-  state=moving and "WalkCrouch" or "IdleCrouch"
- elseif sprinting and moving then
-  state="Sprint"
- elseif moving then
-  state="Walk"
- else
-  state="Idle"
- end
+    if crouching then
+        state=moving and "WalkCrouch" or "IdleCrouch"
+    elseif sprinting and moving then
+        state="Sprint"
+    elseif moving then
+        state="Walk"
+    else
+        state="Idle"
+    end
 
- if state==lastState then return end
+    if state==lastState then return end
+    lastState=state
 
- lastState=state
-
- if state=="IdleCrouch" then
-  playAnim("IdleCrouch",IdleCrouchKS)
- elseif state=="WalkCrouch" then
-  playAnim("WalkCrouch",WalkCrouchKS)
- elseif state=="Sprint" then
-  playAnim("Sprint",SprintKS)
- elseif state=="Walk" then
-  playAnim("Walk",WalkKS)
- else
-  playAnim("Idle",IdleKS)
- end
+    if state=="IdleCrouch" then
+        playAnim("IdleCrouch",IdleCrouchKS)
+    elseif state=="WalkCrouch" then
+        playAnim("WalkCrouch",WalkCrouchKS)
+    elseif state=="Sprint" then
+        playAnim("Sprint",SprintKS)
+    elseif state=="Walk" then
+        playAnim("Walk",WalkKS)
+    else
+        playAnim("Idle",IdleKS)
+    end
 end
 
 local function setCrouch(v)
- if sitting or spawning then return end
+    if sitting or spawning then return end
+    crouching=v
+    lastState=""
 
- crouching=v
- lastState=""
+    if crouching then
+        startCamera()
+    else
+        stopCamera()
+    end
 
- if crouching then
-  startCamera()
- else
-  stopCamera()
- end
-
- stopAnim()
- applyMovement()
- updateAnim()
+    stopAnim()
+    applyMovement()
+    updateAnim()
 end
 
 local function setSprint(v)
- if sitting or spawning then return end
+    if sitting or spawning then return end
+    sprinting=v
+    lastState=""
 
- sprinting=v
- lastState=""
-
- stopAnim()
- applyMovement()
- updateAnim()
+    stopAnim()
+    applyMovement()
+    updateAnim()
 end
 
 local function setSit(v)
- if spawning then return end
+    if spawning then return end
+    sitting=v
 
- sitting=v
+    if sitting then
+        sprinting=false
+        crouching=false
+        lastState=""
 
- if sitting then
-  sprinting=false
-  crouching=false
-  lastState=""
+        startCamera()
+        stopAnim()
 
-  startCamera()
+        h.WalkSpeed=0
+        h:Move(Vector3.zero,false)
+        r.AssemblyLinearVelocity=Vector3.zero
 
-  stopAnim()
+        task.delay(FADE,function()
+            if sitting and not spawning then
+                playAnim("Sit",SitKS)
+            end
+        end)
+    else
+        stopAnim()
+        stopCamera()
 
-  h.WalkSpeed=0
-  h:Move(Vector3.zero,false)
-  r.AssemblyLinearVelocity=Vector3.zero
+        h.WalkSpeed=WALK
+        r.AssemblyLinearVelocity=Vector3.zero
 
-  task.delay(FADE,function()
-   if sitting and not spawning then
-    playAnim("Sit",SitKS)
-   end
-  end)
- else
-  stopAnim()
-  stopCamera()
-
-  h.WalkSpeed=WALK
-  r.AssemblyLinearVelocity=Vector3.zero
-
-  lastState=""
-  applyMovement()
-  updateAnim()
- end
+        lastState=""
+        applyMovement()
+        updateAnim()
+    end
 end
 
 local function playSpawn()
- if spawning or not SpawnKS then return end
+    if spawning or not SpawnKS then return end
 
- spawning=true
- sitting=false
- crouching=false
- sprinting=false
- lastState="Spawn"
+    spawning=true
+    sitting=false
+    crouching=false
+    sprinting=false
+    lastState="Spawn"
 
- startCamera()
+    startCamera()
+    stopAnim()
 
- stopAnim()
-
- h.WalkSpeed=0
- h:Move(Vector3.zero,false)
- r.AssemblyLinearVelocity=Vector3.zero
-
- task.delay(FADE,function()
-
-  if not spawning then return end
-
-  local ok,track=pcall(function()
-   return PlayKeyframeSequence(
-    locust,
-    SpawnKS,
-    ANIMSPEED
-   )
-  end)
-
-  if not ok or not track then
-   spawning=false
-   currentTrack=nil
-   currentName=nil
-   lastState=""
-
-   stopCamera()
-   applyMovement()
-   updateAnim()
-
-   return
-  end
-
-  currentTrack=track
-  currentName="Spawn"
-
-  fadeIn(track)
-
-  pcall(function()
-   track.Looped=false
-  end)
-
-  task.spawn(function()
-
-   repeat
-    task.wait()
-   until currentTrack~=track
-   or not track.IsPlaying
-
-   if currentTrack==track then
-
-    fadeOut(track)
-    task.wait(FADE)
-
-    currentTrack=nil
-    currentName=nil
-    spawning=false
-    lastState=""
-
-    h.WalkSpeed=WALK
+    h.WalkSpeed=0
+    h:Move(Vector3.zero,false)
     r.AssemblyLinearVelocity=Vector3.zero
 
-    stopCamera()
+    task.delay(FADE,function()
+        if not spawning then return end
 
-    applyMovement()
-    updateAnim()
-   end
-  end)
- end)
+        local ok,track=pcall(function()
+            return PlayKeyframeSequence(locust,SpawnKS,ANIMSPEED)
+        end)
+
+        if not ok or not track then
+            spawning=false
+            currentTrack=nil
+            currentName=nil
+            lastState=""
+
+            stopCamera()
+            applyMovement()
+            updateAnim()
+            return
+        end
+
+        currentTrack=track
+        currentName="Spawn"
+        fadeIn(track)
+
+        pcall(function()
+            track.Looped=false
+        end)
+
+        task.spawn(function()
+            repeat
+                task.wait()
+            until currentTrack~=track or not track.IsPlaying
+
+            if currentTrack==track then
+                fadeOut(track)
+                task.wait(FADE)
+
+                currentTrack=nil
+                currentName=nil
+                spawning=false
+                lastState=""
+
+                h.WalkSpeed=WALK
+                r.AssemblyLinearVelocity=Vector3.zero
+
+                stopCamera()
+                applyMovement()
+                updateAnim()
+            end
+        end)
+    end)
 end
 
 RunService.Heartbeat:Connect(function()
- if c.Parent then
-  applyMovement()
- end
+    if c.Parent then
+        applyMovement()
+    end
 end)
 
 RunService.RenderStepped:Connect(function()
+    if not c.Parent then return end
 
- if not c.Parent then return end
+    updateAnim()
 
- updateAnim()
-
- for _,v in ipairs(c:GetDescendants()) do
-  if v:IsA("BasePart") then
-   v.LocalTransparencyModifier=1
-  elseif v:IsA("Decal") or v:IsA("Texture") then
-   v.Transparency=1
-  end
- end
+    for _,v in ipairs(c:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.LocalTransparencyModifier=1
+        elseif v:IsA("Decal") or v:IsA("Texture") then
+            v.Transparency=1
+        end
+    end
 end)
 
 local gui=pg:FindFirstChild("LocustControlsUI")
-
 if gui then
- gui:Destroy()
+    gui:Destroy()
 end
 
 gui=Instance.new("ScreenGui")
@@ -613,16 +718,16 @@ credits.Size=UDim2.new(0,300,0,65)
 credits.Parent=gui
 
 local function credit(text,size,trans,y)
- local t=Instance.new("TextLabel")
- t.BackgroundTransparency=1
- t.Position=UDim2.new(0,0,0,y)
- t.Size=UDim2.new(1,0,0,size+3)
- t.Text=text
- t.TextSize=size
- t.TextTransparency=trans
- t.TextColor3=Color3.new(1,1,1)
- t.Font=Enum.Font.Gotham
- t.Parent=credits
+    local t=Instance.new("TextLabel")
+    t.BackgroundTransparency=1
+    t.Position=UDim2.new(0,0,0,y)
+    t.Size=UDim2.new(1,0,0,size+3)
+    t.Text=text
+    t.TextSize=size
+    t.TextTransparency=trans
+    t.TextColor3=Color3.new(1,1,1)
+    t.Font=Enum.Font.Gotham
+    t.Parent=credits
 end
 
 credit("Made By Emlopam",13,.6,0)
@@ -641,22 +746,22 @@ layout.Padding=UDim.new(0,7)
 layout.Parent=box
 
 local function button(name,text)
- local b=Instance.new("TextButton")
- b.Name=name
- b.Size=UDim2.new(1,0,0,42)
- b.BackgroundTransparency=.25
- b.BackgroundColor3=Color3.fromRGB(20,20,20)
- b.Text=text
- b.TextColor3=Color3.new(1,1,1)
- b.TextSize=13
- b.Font=Enum.Font.GothamBold
- b.Parent=box
+    local b=Instance.new("TextButton")
+    b.Name=name
+    b.Size=UDim2.new(1,0,0,42)
+    b.BackgroundTransparency=.25
+    b.BackgroundColor3=Color3.fromRGB(20,20,20)
+    b.Text=text
+    b.TextColor3=Color3.new(1,1,1)
+    b.TextSize=13
+    b.Font=Enum.Font.GothamBold
+    b.Parent=box
 
- local corner=Instance.new("UICorner")
- corner.CornerRadius=UDim.new(0,8)
- corner.Parent=b
+    local corner=Instance.new("UICorner")
+    corner.CornerRadius=UDim.new(0,8)
+    corner.Parent=b
 
- return b
+    return b
 end
 
 local sb=button("SprintButton","SPRINT: OFF")
@@ -665,126 +770,89 @@ local sitb=button("SitButton","SIT: OFF")
 local spawnb=button("SpawnButton","SPAWN")
 
 local function updateButtons()
+    sb.Text=sprinting and "SPRINT: ON" or "SPRINT: OFF"
+    sb.BackgroundColor3=sprinting and Color3.fromRGB(40,120,40) or Color3.fromRGB(20,20,20)
 
- sb.Text=sprinting and "SPRINT: ON" or "SPRINT: OFF"
+    cb.Text=crouching and "CROUCH: ON" or "CROUCH: OFF"
+    cb.BackgroundColor3=crouching and Color3.fromRGB(120,80,20) or Color3.fromRGB(20,20,20)
 
- sb.BackgroundColor3=
-  sprinting
-  and Color3.fromRGB(40,120,40)
-  or Color3.fromRGB(20,20,20)
-
- cb.Text=crouching and "CROUCH: ON" or "CROUCH: OFF"
-
- cb.BackgroundColor3=
-  crouching
-  and Color3.fromRGB(120,80,20)
-  or Color3.fromRGB(20,20,20)
-
- sitb.Text=sitting and "SIT: ON" or "SIT: OFF"
-
- sitb.BackgroundColor3=
-  sitting
-  and Color3.fromRGB(80,80,140)
-  or Color3.fromRGB(20,20,20)
-
+    sitb.Text=sitting and "SIT: ON" or "SIT: OFF"
+    sitb.BackgroundColor3=sitting and Color3.fromRGB(80,80,140) or Color3.fromRGB(20,20,20)
 end
 
 sb.Activated:Connect(function()
- setSprint(not sprinting)
- updateButtons()
+    setSprint(not sprinting)
+    updateButtons()
 end)
 
 cb.Activated:Connect(function()
- setCrouch(not crouching)
- updateButtons()
+    setCrouch(not crouching)
+    updateButtons()
 end)
 
 sitb.Activated:Connect(function()
- setSit(not sitting)
- updateButtons()
+    setSit(not sitting)
+    updateButtons()
 end)
 
 spawnb.Activated:Connect(function()
- playSpawn()
- updateButtons()
+    playSpawn()
+    updateButtons()
 end)
 
 UIS.InputBegan:Connect(function(i,gp)
-
- if gp then return end
-
- if i.KeyCode==Enum.KeyCode.LeftShift
- or i.KeyCode==Enum.KeyCode.RightShift then
-
-  setSprint(true)
-  updateButtons()
-
- elseif i.KeyCode==Enum.KeyCode.C
- or i.KeyCode==Enum.KeyCode.LeftControl then
-
-  setCrouch(not crouching)
-  updateButtons()
-
- end
+    if gp then return end
+    if i.KeyCode==Enum.KeyCode.LeftShift or i.KeyCode==Enum.KeyCode.RightShift then
+        setSprint(true)
+        updateButtons()
+    elseif i.KeyCode==Enum.KeyCode.C or i.KeyCode==Enum.KeyCode.LeftControl then
+        setCrouch(not crouching)
+        updateButtons()
+    end
 end)
 
 UIS.InputEnded:Connect(function(i)
-
- if i.KeyCode==Enum.KeyCode.LeftShift
- or i.KeyCode==Enum.KeyCode.RightShift then
-
-  setSprint(false)
-  updateButtons()
-
- end
+    if i.KeyCode==Enum.KeyCode.LeftShift or i.KeyCode==Enum.KeyCode.RightShift then
+        setSprint(false)
+        updateButtons()
+    end
 end)
 
 local themeSound
 
 local function getSound()
+    if not isfile(musicFile) then
+        local x=game:HttpGet(musicURL)
+        if not x or #x==0 then
+            return nil
+        end
+        writefile(musicFile,x)
+    end
 
- if not isfile(musicFile) then
+    local s=Instance.new("Sound")
+    s.Name="LocustTheme"
+    s.SoundId=getcustomasset(musicFile)
+    s.Volume=.7
+    s.Looped=true
+    s.Parent=SoundService
 
-  local x=game:HttpGet(musicURL)
-
-  if not x or #x==0 then
-   return nil
-  end
-
-  writefile(musicFile,x)
- end
-
- local s=Instance.new("Sound")
- s.Name="LocustTheme"
- s.SoundId=getcustomasset(musicFile)
- s.Volume=.7
- s.Looped=true
- s.Parent=SoundService
-
- return s
+    return s
 end
 
 task.spawn(function()
-
- while task.wait(.5) do
-
-  if workspace:FindFirstChild("Locust") then
-
-   if not themeSound then
-    themeSound=getSound()
-   end
-
-   if themeSound and not themeSound.IsPlaying then
-    themeSound:Play()
-   end
-
-  elseif themeSound then
-
-   themeSound:Destroy()
-   themeSound=nil
-
-  end
- end
+    while task.wait(.5) do
+        if workspace:FindFirstChild("Locust") then
+            if not themeSound then
+                themeSound=getSound()
+            end
+            if themeSound and not themeSound.IsPlaying then
+                themeSound:Play()
+            end
+        elseif themeSound then
+            themeSound:Destroy()
+            themeSound=nil
+        end
+    end
 end)
 
 applyMovement()
